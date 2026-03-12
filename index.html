@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>슈고상회 - 전술지도 입장</title>
+  <style>
+    body { 
+      background-color: #121212; 
+      color: #fff; 
+      font-family: 'Malgun Gothic', sans-serif; 
+      display: flex; 
+      justify-content: center; 
+      align-items: center; 
+      height: 100vh; 
+      margin: 0; 
+    }
+    .login-box { 
+      background: #1e1e24; 
+      padding: 40px; 
+      border-radius: 12px; 
+      box-shadow: 0 10px 40px rgba(0,0,0,0.8); 
+      text-align: center; 
+      width: 320px; 
+      border: 1px solid #333; 
+    }
+    h1 { 
+      margin-top: 0; 
+      font-size: 1.6rem; 
+      color: #ffaa00; 
+      letter-spacing: 1px;
+    }
+    input { 
+      width: 100%; 
+      padding: 15px; 
+      margin: 25px 0; 
+      border: 1px solid #444; 
+      border-radius: 8px; 
+      background: #2a2a35; 
+      color: #fff; 
+      box-sizing: border-box; 
+      font-size: 1.2rem; 
+      text-align: center; 
+      font-weight: bold;
+    }
+    input:focus {
+      outline: none;
+      border-color: #ffaa00;
+    }
+    button { 
+      width: 100%; 
+      padding: 15px; 
+      background: #ff4757; 
+      border: none; 
+      border-radius: 8px; 
+      color: white; 
+      font-weight: 900; 
+      font-size: 1.2rem; 
+      cursor: pointer; 
+      transition: background 0.2s, transform 0.1s; 
+    }
+    button:hover { background: #ff6b81; }
+    button:active { transform: scale(0.97); }
+    .msg { 
+      margin-top: 20px; 
+      font-size: 0.95rem; 
+      color: #aaa; 
+      font-weight: bold;
+    }
+  </style>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+</head>
+<body>
+
+  <div class="login-box">
+    <h1>슈고상회 전술지도</h1>
+    <input type="text" id="roomCode" placeholder="상회원 코드 입력" autocomplete="off">
+    <button onclick="enterMap()">입장하기</button>
+    <div id="statusMsg" class="msg">상회원 코드를 입력하라거~</div>
+  </div>
+
+  <script>
+    // 네가 직접 확인한 완벽한 파이어베이스 설정
+    const firebaseConfig = {
+      apiKey: "AIzaSyAvNgX4nUmo3dsdij2jKr_L4Kq-yfPldOw",
+      authDomain: "aion2-commander.firebaseapp.com",
+      databaseURL: "https://aion2-commander-default-rtdb.firebaseio.com",
+      projectId: "aion2-commander",
+      storageBucket: "aion2-commander.firebasestorage.app",
+      messagingSenderId: "694179587640",
+      appId: "1:694179587640:web:df4dd76e882cb9d6cb28cd",
+      measurementId: "G-VYQWV9TXLS"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // 안 겹치는 16가지 고유 색상
+    const userColors = [
+      '#ff3333', '#3366ff', '#33cc33', '#ffcc00', 
+      '#9933ff', '#ff8800', '#00ffff', '#ff66cc',
+      '#ccff00', '#996633', '#0000cc', '#ff00ff', 
+      '#00ff99', '#808000', '#aaaaaa', '#008080'
+    ];
+
+    function enterMap() {
+      const room = document.getElementById('roomCode').value.trim();
+      const msg = document.getElementById('statusMsg');
+
+      if(!room) {
+        msg.innerText = "코드를 똑바로 입력하라거!";
+        msg.style.color = "#ff4757";
+        return;
+      }
+
+      msg.innerText = "슈고 커맨더센터로 이동중";
+      msg.style.color = "#aaa";
+
+      let myId = sessionStorage.getItem('myShugoId');
+      if(!myId) {
+        myId = 'user_' + Math.random().toString(36).substr(2, 9);
+        sessionStorage.setItem('myShugoId', myId);
+      }
+
+      const roomRef = db.ref('rooms/' + room + '/users');
+      
+      roomRef.once('value', (snapshot) => {
+        const users = snapshot.val() || {};
+        let myColor = null;
+        let slotIndex = -1;
+
+        if (users[myId]) {
+          myColor = users[myId].color;
+          slotIndex = users[myId].slot;
+        } else {
+          const usedSlots = Object.values(users).map(u => u.slot);
+          
+          if (usedSlots.length >= 16) {
+            myColor = 'spectator';
+          } else {
+            const availableSlots = [];
+            for(let i = 0; i < 16; i++) {
+              if(!usedSlots.includes(i)) availableSlots.push(i);
+            }
+            slotIndex = availableSlots[Math.floor(Math.random() * availableSlots.length)];
+            myColor = userColors[slotIndex];
+            
+            roomRef.child(myId).set({
+              slot: slotIndex,
+              color: myColor,
+              joinedAt: firebase.database.ServerValue.TIMESTAMP
+            });
+
+            roomRef.child(myId).onDisconnect().remove();
+          }
+        }
+
+        sessionStorage.setItem('roomCode', room);
+        sessionStorage.setItem('myColor', myColor);
+        sessionStorage.setItem('mySlot', slotIndex);
+
+        msg.innerText = "입장 성공. 지도로 넘어간다거~";
+        msg.style.color = "#34C759";
+        
+        setTimeout(() => {
+          window.location.href = 'map.html';
+        }, 500);
+      });
+    }
+
+    document.getElementById('roomCode').addEventListener('keypress', function (e) {
+      if (e.key === 'Enter') {
+        enterMap();
+      }
+    });
+  </script>
+</body>
+</html>
