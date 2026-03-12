@@ -18,8 +18,8 @@
       grid-template-areas:
         "top map"
         "bottom map";
-      height: 100vh; /* 구형 브라우저 대응 */
-      height: 100dvh; /* 사파리 하단바 짤림 완벽 방지 */
+      height: 100vh; 
+      height: 100dvh; 
       width: 100vw;
       overflow: hidden;
       transition: background-color 0.5s;
@@ -73,7 +73,7 @@
     }
     #sidebar-toggle:hover { background: #2a2a35; }
 
-    /* 모바일용 패널 숨기기 버튼 (PC에선 숨김) */
+    /* 모바일용 패널 숨기기 버튼 */
     #bottom-toggle { display: none; }
 
     /* UI 공통 요소 */
@@ -98,23 +98,21 @@
     @keyframes ripple { 0% { box-shadow: 0 0 0 0 rgba(255, 170, 0, 0.8); } 100% { box-shadow: 0 0 0 15px rgba(255, 170, 0, 0); } }
     .ping-player { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 4px rgba(0,0,0,0.8); }
 
-    /* 줌 컨트롤 */
+    /* 줌 및 지우개 컨트롤 */
     #zoom-controls { position: absolute; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 10; }
-    .zoom-btn { width: 45px; height: 45px; border-radius: 50%; background: rgba(255,170,0,0.9); color: #000; font-size: 1.8rem; font-weight: bold; border: none; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,0.5);}
+    .zoom-btn { width: 45px; height: 45px; border-radius: 50%; background: rgba(255,170,0,0.9); color: #000; font-size: 1.6rem; font-weight: bold; border: none; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,0.5);}
+    #btn-eraser { transition: background 0.3s; font-size: 1.4rem; }
 
-    /* 📱 모바일 최적화 레이아웃 (768px 이하) - 사파리 렌더링 버그 원천 차단 */
+    /* 모바일 최적화 레이아웃 */
     @media (max-width: 768px) {
       body {
-        display: flex; /* 사파리 Grid 버그 피하려고 Flex로 구조 바꿈 */
+        display: flex; 
         flex-direction: column;
       }
       
       #top-bar {
-        position: relative;
-        flex-shrink: 0;
-        border-right: none; border-bottom: 2px solid #333; padding: 10px;
-        display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
-        z-index: 10;
+        position: relative; flex-shrink: 0; border-right: none; border-bottom: 2px solid #333; padding: 10px;
+        display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; z-index: 10;
       }
       #top-bar h2 { font-size: 1.1rem; width: 100%; text-align: center; margin-bottom: 5px;}
       .info-panel { margin: 0; padding: 5px; font-size: 0.8rem; text-align: center; background: none; width: 100%;}
@@ -123,32 +121,21 @@
       .setting-title { font-size: 0.75rem; color: #ccc; margin-bottom: 2px;}
 
       #map-container {
-        flex: 1; /* 남은 공간 맵이 꽉 채움 */
-        position: relative;
-        z-index: 1;
+        flex: 1; position: relative; z-index: 1;
       }
 
       #bottom-bar {
-        position: absolute;
-        bottom: 0; left: 0; right: 0;
-        height: 40dvh; /* 화면의 40% 고정 */
-        border-right: none; border-top: 3px solid #ffaa00;
-        padding: 10px; padding-bottom: 20px;
-        box-sizing: border-box;
-        z-index: 100;
-        /* 사파리 특효약: 하드웨어 가속 트랜스폼 슬라이딩 */
-        transform: translateY(0);
-        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: absolute; bottom: 0; left: 0; right: 0; height: 40dvh; 
+        border-right: none; border-top: 3px solid #ffaa00; padding: 10px; padding-bottom: 20px;
+        box-sizing: border-box; z-index: 100;
+        transform: translateY(0); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       }
-      body.mobile-bottom-closed #bottom-bar {
-        transform: translateY(100%);
-      }
+      body.mobile-bottom-closed #bottom-bar { transform: translateY(100%); }
 
       #sidebar-toggle { display: none; }
       
       #bottom-toggle {
-        display: flex; position: absolute; 
-        bottom: 40dvh; left: 50%; transform: translateX(-50%);
+        display: flex; position: absolute; bottom: 40dvh; left: 50%; transform: translateX(-50%);
         width: 60px; height: 30px; background: rgba(30, 30, 36, 0.95); 
         border: 2px solid #ffaa00; border-bottom: none; border-radius: 8px 8px 0 0;
         color: #ffaa00; align-items: center; justify-content: center; cursor: pointer; font-weight: bold; z-index: 101;
@@ -191,6 +178,7 @@
       <img id="map-image" src="maps/bermap.webp" alt="Map">
     </div>
     <div id="zoom-controls">
+      <button class="zoom-btn" id="btn-eraser" onclick="toggleEraser()">🧽</button>
       <button class="zoom-btn" onclick="zoomMapCenter(0.3)">+</button>
       <button class="zoom-btn" onclick="zoomMapCenter(-0.3)">-</button>
     </div>
@@ -265,6 +253,10 @@
     let currentMap = 'bermap', currentTool = 'player', flagColorVal = 'red', globalVolume = 0.5;
     let sidebarOpen = true, bottomOpen = true;
     let mapDataRef = db.ref(`rooms/${roomCode}/maps/${currentMap}/pings`);
+    
+    // 사운드 폭탄 방지 타이머
+    let soundsEnabled = false;
+    setTimeout(() => soundsEnabled = true, 1500);
 
     const mapFiles = { 'bermap': 'maps/bermap.webp', 'under': 'maps/under.png', 'middle': 'maps/middle.png' };
     const iconConfig = {
@@ -310,6 +302,20 @@
       setTimeout(updateMapTransform, 300);
     }
 
+    // 만능 지우개 모드 토글 함수
+    let isEraser = false;
+    function toggleEraser() {
+      isEraser = !isEraser;
+      const btn = document.getElementById('btn-eraser');
+      if(isEraser) {
+        btn.style.background = '#ff4757';
+        document.getElementById('map-container').style.cursor = 'crosshair';
+      } else {
+        btn.style.background = 'rgba(255,170,0,0.9)';
+        document.getElementById('map-container').style.cursor = 'grab';
+      }
+    }
+
     function updateFlagTool() { flagColorVal = document.querySelector('input[name="flagColor"]:checked').value; if(currentTool.startsWith('flag_')) currentTool = 'flag_' + flagColorVal; }
     function setTool(tool, element) {
       document.querySelectorAll('.tool-btn, .tool-group').forEach(b => b.classList.remove('active'));
@@ -320,7 +326,14 @@
     function changeMap() {
       currentMap = document.getElementById('mapSelect').value;
       document.getElementById('map-image').src = mapFiles[currentMap];
-      mapDataRef.off(); mapDataRef = db.ref(`rooms/${roomCode}/maps/${currentMap}/pings`); loadPings();
+      mapDataRef.off(); 
+      mapDataRef = db.ref(`rooms/${roomCode}/maps/${currentMap}/pings`); 
+      
+      // 맵 변경 시 사운드 폭탄 초기화
+      soundsEnabled = false;
+      setTimeout(() => soundsEnabled = true, 1500);
+
+      loadPings();
       scale = 1; posX = 0; posY = 0; updateMapTransform();
     }
 
@@ -370,10 +383,20 @@
       if(isDragging) { isDragging = false; return; }
       if(myColor === 'spectator') return;
 
+      const clickedPing = e.target.closest('.ping');
+      
+      // 만능 지우개 모드일 경우 (소유자 상관없이 강제 삭제)
+      if (isEraser) {
+        if (clickedPing) {
+          mapDataRef.child(clickedPing.dataset.id).remove();
+        }
+        toggleEraser(); // 한 번 쓰면 끄기
+        return;
+      }
+
       const rect = wrapper.getBoundingClientRect();
       const xPercent = ((e.clientX - rect.left) / rect.width) * 100, yPercent = ((e.clientY - rect.top) / rect.height) * 100;
 
-      const clickedPing = e.target.closest('.ping');
       if (clickedPing && currentTool !== 'here') {
         const pingId = clickedPing.dataset.id, pingOwner = clickedPing.dataset.owner, pingType = clickedPing.dataset.type;
         if (pingOwner === myId || pingType.includes('kisk') || pingType.includes('flag') || pingType.includes('rally')) {
@@ -385,20 +408,28 @@
       const newPing = { type: currentTool, x: xPercent, y: yPercent, owner: myId, color: myColor, timestamp: firebase.database.ServerValue.TIMESTAMP };
 
       if (currentTool === 'here') {
-        mapDataRef.child(pingId).set(newPing); setTimeout(() => { mapDataRef.child(pingId).remove(); }, 5000); playSound('here');
+        mapDataRef.child(pingId).set(newPing); setTimeout(() => { mapDataRef.child(pingId).remove(); }, 5000); 
       } else {
         mapDataRef.child(pingId).set(newPing);
-        if(currentTool === 'player') playSound('player');
-        if(currentTool.includes('rally')) playSound('come');
       }
     });
 
     function loadPings() {
+      // 1. 화면 그리기용 리스너 (기존)
       mapDataRef.on('value', (snapshot) => {
         document.querySelectorAll('.ping').forEach(el => el.remove());
         const data = snapshot.val();
         if(!data) return;
         Object.keys(data).forEach(key => drawPing(key, data[key]));
+      });
+
+      // 2. 전체 사운드 동기화용 리스너 (신규)
+      mapDataRef.on('child_added', (snapshot) => {
+        if (!soundsEnabled) return;
+        const data = snapshot.val();
+        if (data.type === 'here') playSound('here');
+        else if (data.type === 'player') playSound('player');
+        else if (data.type.includes('rally')) playSound('come');
       });
     }
 
@@ -421,6 +452,7 @@
       if(myColor === 'spectator') return alert("관전자는 초기화 권한이 없다.");
       if(confirm("진짜로 이 맵의 모든 징표를 날려버릴 거냐?")) mapDataRef.remove();
     }
+    
     loadPings();
   </script>
 </body>
