@@ -423,14 +423,18 @@
         Object.keys(data).forEach(key => drawPing(key, data[key]));
       });
 
-      // 2. 전체 사운드 동기화용 리스너 (신규)
-      mapDataRef.on('child_added', (snapshot) => {
+      // 2. 전체 사운드 동기화용 공통 함수 (신규)
+      const handleSound = (snapshot) => {
         if (!soundsEnabled) return;
         const data = snapshot.val();
         if (data.type === 'here') playSound('here');
         else if (data.type === 'player') playSound('player');
         else if (data.type.includes('rally')) playSound('come');
-      });
+      };
+
+      // 3. 리스너 부착 (추가 및 변경 모두 감지)
+      mapDataRef.on('child_added', handleSound);
+      mapDataRef.on('child_changed', handleSound);
     }
 
     function drawPing(id, data) {
