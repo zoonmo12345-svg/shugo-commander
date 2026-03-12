@@ -18,7 +18,9 @@
       grid-template-areas:
         "top map"
         "bottom map";
-      height: 100vh; width: 100vw;
+      height: 100vh; /* 구형 브라우저 대응 */
+      height: 100dvh; /* 사파리 하단바 짤림 완벽 방지 */
+      width: 100vw;
       overflow: hidden;
       transition: background-color 0.5s;
     }
@@ -100,51 +102,62 @@
     #zoom-controls { position: absolute; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 10; }
     .zoom-btn { width: 45px; height: 45px; border-radius: 50%; background: rgba(255,170,0,0.9); color: #000; font-size: 1.8rem; font-weight: bold; border: none; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,0.5);}
 
-    /* 📱 모바일 최적화 레이아웃 (768px 이하) */
+    /* 📱 모바일 최적화 레이아웃 (768px 이하) - 사파리 렌더링 버그 원천 차단 */
     @media (max-width: 768px) {
       body {
-        grid-template-columns: 1fr;
-        grid-template-rows: auto 1fr 38vh;
-        grid-template-areas: "top" "map" "bottom";
-        transition: grid-template-rows 0.3s ease;
-      }
-      body.mobile-bottom-closed {
-        grid-template-rows: auto 1fr 0px;
+        display: flex; /* 사파리 Grid 버그 피하려고 Flex로 구조 바꿈 */
+        flex-direction: column;
       }
       
       #top-bar {
+        position: relative;
+        flex-shrink: 0;
         border-right: none; border-bottom: 2px solid #333; padding: 10px;
         display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
+        z-index: 10;
       }
-      /* 제목 중앙 정렬 */
       #top-bar h2 { font-size: 1.1rem; width: 100%; text-align: center; margin-bottom: 5px;}
       .info-panel { margin: 0; padding: 5px; font-size: 0.8rem; text-align: center; background: none; width: 100%;}
       
       .setting-group { width: 48%; }
       .setting-title { font-size: 0.75rem; color: #ccc; margin-bottom: 2px;}
 
+      #map-container {
+        flex: 1; /* 남은 공간 맵이 꽉 채움 */
+        position: relative;
+        z-index: 1;
+      }
+
       #bottom-bar {
+        position: absolute;
+        bottom: 0; left: 0; right: 0;
+        height: 40dvh; /* 화면의 40% 고정 */
         border-right: none; border-top: 3px solid #ffaa00;
         padding: 10px; padding-bottom: 20px;
-        transition: padding 0.3s ease;
+        box-sizing: border-box;
+        z-index: 100;
+        /* 사파리 특효약: 하드웨어 가속 트랜스폼 슬라이딩 */
+        transform: translateY(0);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       }
       body.mobile-bottom-closed #bottom-bar {
-        padding-top: 0; padding-bottom: 0; border-top: none; overflow: hidden;
+        transform: translateY(100%);
       }
 
       #sidebar-toggle { display: none; }
       
-      /* 모바일용 하단 토글 버튼 추가 */
       #bottom-toggle {
-        display: flex; position: absolute; bottom: 38vh; left: 50%; transform: translateX(-50%);
-        width: 60px; height: 30px; background: rgba(30, 30, 36, 0.95); border: 2px solid #ffaa00; border-bottom: none; border-radius: 8px 8px 0 0;
+        display: flex; position: absolute; 
+        bottom: 40dvh; left: 50%; transform: translateX(-50%);
+        width: 60px; height: 30px; background: rgba(30, 30, 36, 0.95); 
+        border: 2px solid #ffaa00; border-bottom: none; border-radius: 8px 8px 0 0;
         color: #ffaa00; align-items: center; justify-content: center; cursor: pointer; font-weight: bold; z-index: 101;
-        transition: bottom 0.3s ease;
+        transition: bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       }
       body.mobile-bottom-closed #bottom-toggle { bottom: 0; }
       
       .section-title { margin-top: 10px; }
-      #zoom-controls { bottom: calc(38vh + 20px); transition: bottom 0.3s ease; }
+      #zoom-controls { bottom: calc(40dvh + 20px); transition: bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
       body.mobile-bottom-closed #zoom-controls { bottom: 20px; }
     }
   </style>
