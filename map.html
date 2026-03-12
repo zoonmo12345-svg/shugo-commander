@@ -73,7 +73,7 @@
     }
     #sidebar-toggle:hover { background: #2a2a35; }
 
-    /* 모바일용 패널 숨기기 버튼 */
+    /* 모바일용 패널 숨기기 버튼 (PC에선 숨김) */
     #bottom-toggle { display: none; }
 
     /* UI 공통 요소 */
@@ -103,7 +103,7 @@
     .zoom-btn { width: 45px; height: 45px; border-radius: 50%; background: rgba(255,170,0,0.9); color: #000; font-size: 1.6rem; font-weight: bold; border: none; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,0.5);}
     #btn-eraser { transition: background 0.3s; font-size: 1.4rem; }
 
-    /* 모바일 최적화 레이아웃 */
+    /* 📱 모바일 최적화 레이아웃 (768px 이하) */
     @media (max-width: 768px) {
       body {
         display: flex; 
@@ -268,7 +268,15 @@
     const sounds = { 'here': new Audio('sounds/here.mp3'), 'come': new Audio('sounds/come.mp3'), 'player': new Audio('sounds/player.mp3') };
     const beepSound = new Audio('sounds/beep_sound.mp3');
 
-    function playSound(type) { if(sounds[type]) { sounds[type].volume = globalVolume; sounds[type].currentTime = 0; sounds[type].play().catch(()=>{}); } }
+    // 여기서 currentTime = 0 처리로 소리 중첩(큐 대기) 원천 차단
+    function playSound(type) { 
+      if(sounds[type]) { 
+        sounds[type].volume = globalVolume; 
+        sounds[type].currentTime = 0; 
+        sounds[type].play().catch(()=>{}); 
+      } 
+    }
+    
     function testVolume() { globalVolume = parseFloat(document.getElementById('vol-slider').value); beepSound.volume = globalVolume; beepSound.currentTime = 0; beepSound.play().catch(()=>{}); }
     function updateIconSize() { document.documentElement.style.setProperty('--icon-scale', document.getElementById('size-slider').value); }
 
@@ -414,8 +422,11 @@
       }
     });
 
+    let lastSoundTime = 0;
+    let lastSoundId = '';
+
     function loadPings() {
-      // 1. 화면 그리기용 리스너 (기존)
+      // 1. 화면 그리기용 리스너
       mapDataRef.on('value', (snapshot) => {
         document.querySelectorAll('.ping').forEach(el => el.remove());
         const data = snapshot.val();
@@ -423,16 +434,28 @@
         Object.keys(data).forEach(key => drawPing(key, data[key]));
       });
 
-      // 2. 전체 사운드 동기화용 공통 함수 (신규)
+      // 2. 전체 사운드 동기화용 공통 함수 (중복 차단 로직 포함)
       const handleSound = (snapshot) => {
         if (!soundsEnabled) return;
+        
         const data = snapshot.val();
+        const pingId = snapshot.key;
+        const now = Date.now();
+
+        // 1초 이내 동일 핑ID에서 발생한 사운드 이벤트는 완전 무시
+        if (lastSoundId === pingId && (now - lastSoundTime < 1000)) {
+          return;
+        }
+
+        lastSoundId = pingId;
+        lastSoundTime = now;
+
         if (data.type === 'here') playSound('here');
         else if (data.type === 'player') playSound('player');
         else if (data.type.includes('rally')) playSound('come');
       };
 
-      // 3. 리스너 부착 (추가 및 변경 모두 감지)
+      // 3. 리스너 부착
       mapDataRef.on('child_added', handleSound);
       mapDataRef.on('child_changed', handleSound);
     }
