@@ -76,13 +76,12 @@
 
   <div class="login-box">
     <h1>슈고상회 전술지도</h1>
-    <input type="text" id="roomCode" placeholder="상회원 코드 입력" autocomplete="off">
+    <input type="password" id="roomCode" placeholder="상회원 코드 입력" autocomplete="off">
     <button onclick="enterMap()">입장하기</button>
     <div id="statusMsg" class="msg">상회원 코드를 입력하라거~</div>
   </div>
 
   <script>
-    // 네가 직접 확인한 완벽한 파이어베이스 설정
     const firebaseConfig = {
       apiKey: "AIzaSyAvNgX4nUmo3dsdij2jKr_L4Kq-yfPldOw",
       authDomain: "aion2-commander.firebaseapp.com",
@@ -90,14 +89,13 @@
       projectId: "aion2-commander",
       storageBucket: "aion2-commander.firebasestorage.app",
       messagingSenderId: "694179587640",
-      appId: "1:694179587640:web:df4dd76e882cb9d6cb28cd",
-      measurementId: "G-VYQWV9TXLS"
+      appId: "1:694179587640:web:df4dd76e882cb9d6cb28cd"
     };
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // 안 겹치는 16가지 고유 색상
+    // 16가지 고유 색상 (기존 로직 유지)
     const userColors = [
       '#ff3333', '#3366ff', '#33cc33', '#ffcc00', 
       '#9933ff', '#ff8800', '#00ffff', '#ff66cc',
@@ -105,75 +103,88 @@
       '#00ff99', '#808000', '#aaaaaa', '#008080'
     ];
 
-    function enterMap() {
-      const room = document.getElementById('roomCode').value.trim();
+    async function enterMap() {
+      const inputCode = document.getElementById('roomCode').value.trim();
       const msg = document.getElementById('statusMsg');
 
-      if(!room) {
+      if(!inputCode) {
         msg.innerText = "코드를 똑바로 입력하라거!";
         msg.style.color = "#ff4757";
         return;
       }
 
-      msg.innerText = "슈고 커맨더센터로 이동중";
+      msg.innerText = "서버에서 상회원 코드 대조 중...";
       msg.style.color = "#aaa";
 
-      let myId = sessionStorage.getItem('myShugoId');
-      if(!myId) {
-        myId = 'user_' + Math.random().toString(36).substr(2, 9);
-        sessionStorage.setItem('myShugoId', myId);
-      }
+      try {
+        // 서버에서 진짜 비번 가져오기 (F12 눌러도 비번 안 보임)
+        const snapshot = await db.ref('adminConfig/masterCode').once('value');
+        const masterCode = snapshot.val();
 
-      const roomRef = db.ref('rooms/' + room + '/users');
-      
-      roomRef.once('value', (snapshot) => {
-        const users = snapshot.val() || {};
-        let myColor = null;
-        let slotIndex = -1;
+        // 입력한 코드랑 파이어베이스의 masterCode가 정확히 일치하는지 확인
+        if (String(inputCode) === String(masterCode)) {
+          msg.innerText = "코드 일치 확인. 색상 배정 중...";
+          msg.style.color = "#34C759";
 
-        if (users[myId]) {
-          myColor = users[myId].color;
-          slotIndex = users[myId].slot;
-        } else {
-          const usedSlots = Object.values(users).map(u => u.slot);
+          // 코드가 맞으면 모두가 공유하는 단일 방('shugo_main_room')으로 강제 입장
+          const room = "shugo_main_room";
           
-          if (usedSlots.length >= 16) {
-            myColor = 'spectator';
-          } else {
-            const availableSlots = [];
-            for(let i = 0; i < 16; i++) {
-              if(!usedSlots.includes(i)) availableSlots.push(i);
-            }
-            slotIndex = availableSlots[Math.floor(Math.random() * availableSlots.length)];
-            myColor = userColors[slotIndex];
-            
-            roomRef.child(myId).set({
-              slot: slotIndex,
-              color: myColor,
-              joinedAt: firebase.database.ServerValue.TIMESTAMP
-            });
-
-            roomRef.child(myId).onDisconnect().remove();
+          let myId = sessionStorage.getItem('myShugoId');
+          if(!myId) {
+            myId = 'user_' + Math.random().toString(36).substr(2, 9);
+            sessionStorage.setItem('myShugoId', myId);
           }
+
+          const roomRef = db.ref('rooms/' + room + '/users');
+          roomRef.once('value', (userSnapshot) => {
+            const users = userSnapshot.val() || {};
+            let myColor = null;
+            let slotIndex = -1;
+
+            if (users[myId]) {
+              myColor = users[myId].color;
+              slotIndex = users[myId].slot;
+            } else {
+              const usedSlots = Object.values(users).map(u => u.slot);
+              if (usedSlots.length >= 16) {
+                myColor = 'spectator';
+              } else {
+                const availableSlots = [];
+                for(let i = 0; i < 16; i++) {
+                  if(!usedSlots.includes(i)) availableSlots.push(i);
+                }
+                slotIndex = availableSlots[Math.floor(Math.random() * availableSlots.length)];
+                myColor = userColors[slotIndex];
+                
+                roomRef.child(myId).set({
+                  slot: slotIndex,
+                  color: myColor,
+                  joinedAt: firebase.database.ServerValue.TIMESTAMP
+                });
+                roomRef.child(myId).onDisconnect().remove();
+              }
+            }
+
+            sessionStorage.setItem('roomCode', room);
+            sessionStorage.setItem('myColor', myColor);
+            sessionStorage.setItem('mySlot', slotIndex);
+
+            setTimeout(() => { window.location.href = 'map.html'; }, 500);
+          });
+        } else {
+          // 비번 틀렸을 때
+          msg.innerText = "액세스 거부: 상회원 코드가 틀렸다거. 넌 누구냐거?";
+          msg.style.color = "#ff4757";
         }
-
-        sessionStorage.setItem('roomCode', room);
-        sessionStorage.setItem('myColor', myColor);
-        sessionStorage.setItem('mySlot', slotIndex);
-
-        msg.innerText = "입장 성공. 지도로 넘어간다거~";
-        msg.style.color = "#34C759";
-        
-        setTimeout(() => {
-          window.location.href = 'map.html';
-        }, 500);
-      });
+      } catch (e) {
+        msg.innerText = "서버 연결 오류. 관리자한테 따지라거.";
+        msg.style.color = "#ff4757";
+        console.error(e);
+      }
     }
 
     document.getElementById('roomCode').addEventListener('keypress', function (e) {
-      if (e.key === 'Enter') {
-        enterMap();
-      }
+      if (e.key === 'Enter') enterMap();
     });
   </script>
 </body>
